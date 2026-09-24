@@ -8,8 +8,8 @@
   const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#dc2626', '#0891b2', '#db2777', '#65a30d'];
   const GLOBAL_GRAY = '#6b7280'; // couleur neutre pour les graphiques « global »
   const ANOM_LABELS = {
-    ue_note_vide: 'Épreuve(s) vide(s) dans une UE',
-    ue_single_note: 'Une seule épreuve notée (DEF attendu)',
+    ue_note_vide: 'Case(s) d\'épreuve(s) vide(s) — donnée manquante',
+    ue_single_note: 'Une seule note notée (DEF + moyenne UE attendue non calculée)',
     sem_def_incoherent: 'DEF en UE mais incohérent au semestre'
   };
 
@@ -174,17 +174,23 @@
         responsive: true, maintainAspectRatio: false,
         animation: { duration: 250 },
         scales: {
-          x: { grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } },
-            title: { display: true, text: 'Note /20 — [n ; n+1[', font: { size: 13 } } },
-          y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } },
-            title: { display: true, text: 'Effectif', font: { size: 13 } } }
+          x: {
+            grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } },
+            title: { display: true, text: 'Note /20 — [n ; n+1[', font: { size: 13 } }
+          },
+          y: {
+            beginAtZero: true, ticks: { precision: 0, font: { size: 11 } },
+            title: { display: true, text: 'Effectif', font: { size: 13 } }
+          }
         },
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: {
-            title: (items) => 'Note [' + items[0].label + ' ; ' + (Number(items[0].label) + 1) + '[',
-            label: (item) => 'Effectif : ' + item.raw
-          } },
+          tooltip: {
+            callbacks: {
+              title: (items) => 'Note [' + items[0].label + ' ; ' + (Number(items[0].label) + 1) + '[',
+              label: (item) => 'Effectif : ' + item.raw
+            }
+          },
           vlines: { lines: opts.lines || [] }
         }
       }
@@ -269,12 +275,18 @@
     if (!cv) return;
     cv.__chart = new Chart(cv, {
       type: 'bar',
-      data: { labels: P.map((p) => p.label),
-        datasets: [{ data: P.map((p) => p.tauxAdm),
-          backgroundColor: P.map((_, i) => colorOf(i)), barPercentage: 0.5, categoryPercentage: 0.9 }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      data: {
+        labels: P.map((p) => p.label),
+        datasets: [{
+          data: P.map((p) => p.tauxAdm),
+          backgroundColor: P.map((_, i) => colorOf(i)), barPercentage: 0.5, categoryPercentage: 0.9
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         scales: { x: { beginAtZero: true, max: 100, title: { display: true, text: '% ADM', font: { size: 13 } }, ticks: { font: { size: 11 } } } },
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (it) => it.raw + ' % ADM' } } } }
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (it) => it.raw + ' % ADM' } } }
+      }
     });
     charts.push(cv.__chart);
   }
@@ -312,27 +324,45 @@
         const d = semDistAdmis ? k.histSemAdmis : k.histSem;
         const counts = d.counts || [];
         const total = counts.reduce((a, b) => a + b, 0);
-        return { label: g.label, data: counts.map((c) => total > 0 ? c / total * 100 : 0),
-          backgroundColor: colorOf(i) + 'cc', borderColor: colorOf(i), borderWidth: 1, barPercentage: 0.8, categoryPercentage: 0.9 };
+        return {
+          label: g.label, data: counts.map((c) => total > 0 ? c / total * 100 : 0),
+          backgroundColor: colorOf(i) + 'cc', borderColor: colorOf(i), borderWidth: 1, barPercentage: 0.8, categoryPercentage: 0.9
+        };
       });
-      cv.__chart = new Chart(cv, { type: 'bar', data: { labels, datasets },
-        options: { responsive: true, maintainAspectRatio: false,
-          scales: { x: { ticks: { autoSkip: false, font: { size: 11 } }, title: { display: true, text: 'Note /20 — [n ; n+1[', font: { size: 13 } } },
-                    y: { beginAtZero: true, title: { display: true, text: '% des étudiants du parcours', font: { size: 13 } } } },
-          plugins: { legend: { position: 'top', labels: { boxWidth: 12 } },
-            tooltip: { callbacks: { title: (it) => 'Note [' + it.label + ' ; ' + (Number(it.label) + 1) + '[', label: (it) => it.dataset.label + ' : ' + it.raw.toFixed(1) + ' %' } } } } });
+      cv.__chart = new Chart(cv, {
+        type: 'bar', data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { autoSkip: false, font: { size: 11 } }, title: { display: true, text: 'Note /20 — [n ; n+1[', font: { size: 13 } } },
+            y: { beginAtZero: true, title: { display: true, text: '% des étudiants du parcours', font: { size: 13 } } }
+          },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12 } },
+            tooltip: { callbacks: { title: (it) => 'Note [' + it.label + ' ; ' + (Number(it.label) + 1) + '[', label: (it) => it.dataset.label + ' : ' + it.raw.toFixed(1) + ' %' } }
+          }
+        }
+      });
     } else {
       const datasets = DATA.groups.map((g, i) => {
         const k = g.analysis.kpis || {};
         const d = semDistAdmis ? k.histSemAdmis : k.histSem;
         return { label: g.label, data: (d.counts || []).slice(), backgroundColor: colorOf(i), stack: 's', barPercentage: 1, categoryPercentage: 1 };
       });
-      cv.__chart = new Chart(cv, { type: 'bar', data: { labels, datasets },
-        options: { responsive: true, maintainAspectRatio: false,
-          scales: { x: { stacked: true, ticks: { autoSkip: false, font: { size: 11 } }, title: { display: true, text: 'Note /20', font: { size: 13 } } },
-                    y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, title: { display: true, text: 'Effectif', font: { size: 13 } } } },
-          plugins: { legend: { position: 'top', labels: { boxWidth: 12 } },
-            tooltip: { callbacks: { title: (it) => 'Note [' + it.label + ' ; ' + (Number(it.label) + 1) + '[', label: (it) => it.dataset.label + ' : ' + it.raw } } } } });
+      cv.__chart = new Chart(cv, {
+        type: 'bar', data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true, ticks: { autoSkip: false, font: { size: 11 } }, title: { display: true, text: 'Note /20', font: { size: 13 } } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, title: { display: true, text: 'Effectif', font: { size: 13 } } }
+          },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12 } },
+            tooltip: { callbacks: { title: (it) => 'Note [' + it.label + ' ; ' + (Number(it.label) + 1) + '[', label: (it) => it.dataset.label + ' : ' + it.raw } }
+          }
+        }
+      });
     }
     charts.push(cv.__chart);
   }
@@ -358,7 +388,7 @@
     return '<section><h2>Matières partagées (présentes dans ≥ 2 parcours)</h2>' +
       '<p class="muted">Matching par ' + modeLabel + '. Statistiques combinées (tous les étudiants de tous les parcours qui suivent la matière). Les codes sont colorés par parcours. Clic sur une ligne : analyse détaillée.</p>' +
       '<div class="table-wrap"><table><thead><tr><th>Matière</th><th>Eff. total</th><th>ACQ %</th><th>Moy.</th><th>Méd.</th><th>σ</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
-      '<div class="chart-box tall" style="margin-top:16px"><canvas id="sharedCanvas"></canvas></div>' +
+      '<div class="chart-box" style="height:' + Math.max(320, S.length * 44 + 80) + 'px;margin-top:16px"><canvas id="sharedCanvas"></canvas></div>' +
       '<p class="muted">Comparatif des moyennes par parcours.</p></section>';
   }
 
@@ -368,16 +398,22 @@
     if (!cv || !S.length) return;
     cv.__chart = new Chart(cv, {
       type: 'bar',
-      data: { labels: S.map((s) => (s.name || s.code)),
+      data: {
+        labels: S.map((s) => (s.name || s.code)),
         datasets: DATA.groups.map((g, i) => ({
           label: g.label,
           data: S.map((s) => { const gr = s.groups.find((x) => x.g === i); return gr ? gr.mean : null; }),
           backgroundColor: colorOf(i), barPercentage: 0.95, categoryPercentage: 0.9
-        })) },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        scales: { x: { min: 0, max: 20, title: { display: true, text: 'Moyenne /20', font: { size: 13 } }, ticks: { font: { size: 11 } } },
-                  y: { ticks: { font: { size: 11 } } } },
-        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } } }
+        }))
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { min: 0, max: 20, title: { display: true, text: 'Moyenne /20', font: { size: 13 } }, ticks: { font: { size: 11 } } },
+          y: { ticks: { font: { size: 11 } } }
+        },
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } }
+      }
     });
     charts.push(cv.__chart);
   }
@@ -529,14 +565,18 @@
     const idx = R.byGroup.map((r) => DATA.global.byParcours.findIndex((p) => p.label === r.label));
     cv.__chart = new Chart(cv, {
       type: 'bar',
-      data: { labels: R.byGroup.map((r) => r.label),
+      data: {
+        labels: R.byGroup.map((r) => r.label),
         datasets: [
           { label: 'Tous les étudiants', data: idx.map((i) => (i >= 0 ? DATA.global.byParcours[i].tauxAdm : null)), backgroundColor: '#94a3b8' },
           { label: 'Redoublants', data: R.byGroup.map((r) => r.tauxAdm), backgroundColor: '#7c3aed' }
-        ] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        ]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         scales: { x: { beginAtZero: true, max: 100, title: { display: true, text: '% ADM', font: { size: 13 } }, ticks: { font: { size: 11 } } } },
-        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } } }
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } }
+      }
     });
     charts.push(cv.__chart);
   }
@@ -553,10 +593,11 @@
   function absencesHtml() {
     const list = DATA.global.absences || [];
     const counts = DATA.groups.map((g, i) => list.filter((r) => r.g === i).length);
+    const cnt = (v) => '<td' + (Number(v) === 1 ? ' style="color:#dc2626;font-weight:700"' : '') + '>' + v + '</td>';
     const rows = list.map((r) =>
       '<tr class="clickable student-row" data-g="' + r.g + '" data-id="' + esc(r.id) + '" data-nom="' + esc(r.nom) + '" data-prenom="' + esc(r.prenom) + '">' +
       '<td>' + nameColored(r.label, r.g) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
-      '<td>' + r.DIS + '</td><td>' + r.ABJ + '</td><td>' + r.ABI + '</td></tr>'
+      cnt(r.DIS) + cnt(r.ABJ) + cnt(r.ABI) + '</tr>'
     ).join('');
     return '<section><div class="section-head"><h2 style="margin:0">Défaillants avec absences — liste jury</h2>' +
       '<a class="btn small" href="api/export.php?token=' + encodeURIComponent(TOKEN) + '&type=csvg:absences">CSV</a></div>' +
@@ -626,9 +667,8 @@
       '<td>' + nameColored(s.label, s.g) + '</td>' +
       '<td class="mono">' + esc(s.id) + '</td><td>' + esc(s.nom) + '</td><td>' + esc(s.prenom) + '</td>' +
       '<td>' + s.issues.map((a) =>
-        '<div>' + esc(ANOM_LABELS[a.type] || a.type) +
-        (a.ueCode ? ' — <span class="mono">' + esc(a.ueCode) + '</span>' : '') +
-        '</div><div class="muted">' + esc(a.message) + '</div>'
+        (a.ueName ? '<div>' + esc(a.ueName) + '</div>' : '') +
+        '<div class="muted">' + esc(a.message) + '</div>'
       ).join('') + '</td>' +
       '</tr>'
     ).join('');
@@ -698,6 +738,14 @@
 
   /* ---------- fiche étudiant ---------- */
 
+  function problemUeCodes(gi, studentId) {
+    const codes = new Set();
+    for (const a of (DATA.global.anomalies || [])) {
+      if (a.g === gi && a.id === studentId && a.ueCode) codes.add(a.ueCode);
+    }
+    return codes;
+  }
+
   function openStudent(gi, id, nom, prenom) {
     const analysis = (DATA.groups[gi] || {}).analysis || {};
     const students = analysis.students || [];
@@ -708,6 +756,7 @@
     const info = Object.keys(s.info || {}).map((k) =>
       '<span>' + esc(k) + ' : <b>' + esc(s.info[k] || '—') + '</b></span>').join('');
 
+    const badCodes = problemUeCodes(gi, s.id);
     const ueRows = (analysis.ues || []).map((ue, i) => {
       const u = (s.ues || [])[i];
       if (!u) return '';
@@ -719,14 +768,17 @@
         const v = examValue(ex);
         return '<span title="' + esc(ex.code) + '">' + esc(ex.name || ex.code || 'Épreuve') + ' : ' + v + '</span>';
       }).join('<br>');
-      return '<tr><td>' + esc(name) + prev + codeLine + '</td><td>' + note + '</td><td>' + badge(u.resultat) + '</td>' +
+      const bad = badCodes.has(ue.code);
+      return '<tr' + (bad ? ' class="ue-problem"' : '') + '>' +
+        '<td>' + esc(name) + prev + codeLine + '</td><td>' + note + '</td><td>' + badge(u.resultat) + '</td>' +
         '<td>' + ((u.credits !== null && u.credits !== undefined) ? fmt(u.credits) : '—') + '</td>' +
         '<td>' + (u.anSession ? esc(u.anSession) : '—') + '</td>' +
         '<td class="exams-cell">' + (exams || '<span class="muted">—</span>') + '</td></tr>';
     }).join('');
 
     document.getElementById('modalContent').innerHTML =
-      '<h2>' + esc(s.prenom) + ' ' + esc(s.nom) + ' ' + badge(sem.resultat) + '</h2>' +
+      '<h2>' + esc(s.prenom) + ' ' + esc(s.nom) + ' ' + badge(sem.resultat) +
+      (s.isRedoublant ? ' <span class="badge b-RED">Redoublant</span>' : '') + '</h2>' +
       '<div class="muted" style="margin:0 0 10px">Parcours : ' + nameColored(DATA.groups[gi].label, gi) + '</div>' +
       '<div class="student-info"><span>N°Etu : <b class="mono">' + esc(s.id) + '</b></span>' + info +
       '<span>Note sem. : <b>' + fmt(sem.note, 3) + '</b></span>' +

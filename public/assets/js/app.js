@@ -66,7 +66,7 @@
     if (ex.note !== null && ex.note !== undefined) return fmt(ex.note, 3);
     if (ex.raw) return badge(ex.raw);
     return '—';
-  }  
+  }
 
   function acqPct(ue) {
     const tot = sumObj(ue.repartition);
@@ -460,10 +460,12 @@
 
   function absencesHtml() {
     const list = DATA.absences || [];
+    // Bleu + gras quand la valeur est 1 (mention isolée à examiner au jury)
+    const cnt = (v) => '<td' + (Number(v) === 1 ? ' style="color:#dc2626;font-weight:700"' : '') + '>' + v + '</td>';
     const rows = list.map((r) =>
       '<tr class="clickable student-row" data-id="' + esc(r.id) + '" data-nom="' + esc(r.nom) + '" data-prenom="' + esc(r.prenom) + '">' +
       '<td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
-      '<td>' + r.DIS + '</td><td>' + r.ABJ + '</td><td>' + r.ABI + '</td></tr>'
+      cnt(r.DIS) + cnt(r.ABJ) + cnt(r.ABI) + '</tr>'
     ).join('');
     return '<section>' +
       '<div class="section-head"><h2 style="margin:0">Défaillants en semestre avec absences (' + list.length + ') — liste jury</h2>' +
@@ -654,6 +656,14 @@
 
   /* ---------- fiche étudiant (usage jury) ---------- */
 
+  function problemUeCodes(studentId) {
+    const codes = new Set();
+    for (const a of (DATA.anomalies || [])) {
+      if (a.id === studentId && a.ueCode) codes.add(a.ueCode);
+    }
+    return codes;
+  }
+
   function openStudent(id, nom, prenom) {
     const students = DATA.students || [];
     const s = students.find((x) => x.id === id) ||
@@ -667,6 +677,7 @@
     const ueRows = DATA.ues.map((ue, i) => {
       const u = (s.ues || [])[i];
       if (!u) return '';
+      const bad = problemUeCodes(s.id).has(ue.code);
       const prev = u.sessionPrecedente ? ' <span class="badge b-PREV">session préc.</span>' : '';
       const note = u.note !== null && u.note !== undefined ? fmt(u.note, 3) : badge(u.noteRaw);
       const name = (ue.name && ue.name.trim() !== '' && ue.name !== ue.code) ? ue.name : ue.code;
@@ -675,7 +686,7 @@
         const v = examValue(ex);
         return '<span title="' + esc(ex.code) + '">' + esc(ex.name || ex.code || 'Épreuve') + ' : ' + v + '</span>';
       }).join('<br>');
-      return '<tr>' +
+      return '<tr' + (bad ? ' class="ue-problem"' : '') + '>' +
         '<td>' + esc(name) + prev + codeLine + '</td>' +
         '<td>' + note + '</td>' +
         '<td>' + badge(u.resultat) + '</td>' +
@@ -686,7 +697,8 @@
     }).join('');
 
     document.getElementById('modalContent').innerHTML =
-      '<h2>' + esc(s.prenom) + ' ' + esc(s.nom) + ' ' + badge(sem.resultat) + '</h2>' +
+      '<h2>' + esc(s.prenom) + ' ' + esc(s.nom) + ' ' + badge(sem.resultat) +
+      (s.isRedoublant ? ' <span class="badge b-RED">Redoublant</span>' : '') + '</h2>' +
       '<div class="student-info">' +
       '<span>N°Etu : <b class="mono">' + esc(s.id) + '</b></span>' +
       info +

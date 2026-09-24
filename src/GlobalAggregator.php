@@ -104,7 +104,7 @@ final class GlobalAggregator
                     'std' => $ue['stats']['std'] ?? null,
                     'acqPct' => $tot > 0 ? (int) round($acq / $tot * 100) : null,
                     'hist' => $ue['hist'] ?? [],
-                    'exams' => $ue['exams'] ?? [],   
+                    'exams' => $ue['exams'] ?? [],
                     'notes' => $ue['ueNotes'] ?? [],
                 ];
             }
@@ -168,7 +168,7 @@ final class GlobalAggregator
                     'std' => $r['std'],
                     'acqPct' => $r['acqPct'],
                     'hist' => $r['hist'],
-                    'exams' => $r['exams'] ?? [],                    
+                    'exams' => $r['exams'] ?? [],
                 ];
             }
         }
@@ -218,15 +218,12 @@ final class GlobalAggregator
             }
         }
         if ($anyRed) {
-            $requested = 0;
+            $requested = 0;      // ← 0
             $matched = 0;
-            $byGroup = [];
             foreach ($groups as $gi => $g) {
                 $R = $g['analysis']['redoublants'] ?? null;
-                if ($R === null) {
-                    continue;
-                }
-                $requested = (int) $R['requested'];
+                if ($R === null) continue;
+                $requested += (int) $R['requested'];   // ← += (avant : =, écrasé à chaque itération)
                 $matched += (int) $R['matched'];
                 $k = $R['kpis'] ?? [];
                 $rep = $k['repartition'] ?? [];
@@ -282,9 +279,18 @@ final class GlobalAggregator
     {
         $name = strtolower(trim($name));
         $name = strtr($name, [
-            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-            'à' => 'a', 'â' => 'a', 'ù' => 'u', 'ü' => 'u',
-            'ï' => 'i', 'ô' => 'o', 'ö' => 'o', 'ç' => 'c',
+            'é' => 'e',
+            'è' => 'e',
+            'ê' => 'e',
+            'ë' => 'e',
+            'à' => 'a',
+            'â' => 'a',
+            'ù' => 'u',
+            'ü' => 'u',
+            'ï' => 'i',
+            'ô' => 'o',
+            'ö' => 'o',
+            'ç' => 'c',
         ]);
 
         return (string) preg_replace('/\s+/', ' ', $name);

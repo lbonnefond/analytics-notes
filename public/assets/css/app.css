@@ -49,6 +49,7 @@ section h3 { font-size: 14px; margin: 20px 0 10px; color: var(--muted); }
 .card .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge.b-RED { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b;}
 .b-ADM, .b-ACQ { background: #dcfce7; color: #166534; }
 .b-AJ, .b-NACQ { background: #fef3c7; color: #92400e; }
 .b-DEF, .b-DIS { background: #fee2e2; color: #991b1b; }
@@ -105,6 +106,8 @@ tbody tr.clickable:hover { background: #f5f8ff; }
 .student-info b { color: var(--text); }
 .student-table td.exams-cell { white-space: normal; font-size: 12.5px; min-width: 260px; }
 .student-table td.exams-cell span { display: inline-block; margin-right: 14px; }
+.student-table tr.ue-problem td { background: #f1f5f9; }
+.student-table tr.ue-problem td:first-child { color: #64748b; font-style: italic; }
 
 .footer { color: var(--muted); font-size: 12px; text-align: center; padding: 6px 0 24px; }
 
@@ -152,3 +155,4 @@ a.ue-card { text-decoration: none; color: inherit; }
 .th-color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
 .th-color-row input[type=color] { width: 44px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; }
 .anom-section .muted { margin: 8px 0; }
+

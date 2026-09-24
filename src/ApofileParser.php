@@ -110,7 +110,7 @@ final class ApofileParser
             $set = array_map('strval', $redoublantIds);
             $subset = array_values(array_filter(
                 $students,
-                static fn (array $s): bool => in_array($s['id'], $set, true)
+                static fn(array $s): bool => in_array($s['id'], $set, true)
             ));
             $redoublants = [
                 'requested' => count($set),
@@ -118,6 +118,15 @@ final class ApofileParser
                 'kpis' => $this->computeKpis($subset),
                 'ues' => $this->computeSubsetUeStats($subset),
             ];
+        }
+
+        // Drapeau par étudiant : présent dans la liste de redoublants fournie
+        if ($redoublantIds !== []) {
+            $set = array_map('strval', $redoublantIds);
+            foreach ($students as &$s) {
+                $s['isRedoublant'] = in_array($s['id'], $set, true);
+            }
+            unset($s);
         }
 
         return [
@@ -241,9 +250,18 @@ final class ApofileParser
     {
         $s = strtolower($s);
         $s = strtr($s, [
-            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-            'à' => 'a', 'â' => 'a', 'ù' => 'u', 'ü' => 'u',
-            'ï' => 'i', 'ô' => 'o', 'ö' => 'o', 'ç' => 'c',
+            'é' => 'e',
+            'è' => 'e',
+            'ê' => 'e',
+            'ë' => 'e',
+            'à' => 'a',
+            'â' => 'a',
+            'ù' => 'u',
+            'ü' => 'u',
+            'ï' => 'i',
+            'ô' => 'o',
+            'ö' => 'o',
+            'ç' => 'c',
             '°' => '',
         ]);
 
@@ -569,7 +587,7 @@ final class ApofileParser
 
         return $matrix;
     }
-    
+
     /** @param array<int, array<int, mixed>> $matrix */
     private function readStudents(array $matrix): array
     {
@@ -796,11 +814,11 @@ final class ApofileParser
                 'code' => $ue['code'],
                 'name' => $ue['name'],
                 'stats' => array_merge(
-                    ['effectif' => count($allNotes) + $defAll, 'acquis' => count(array_filter($allNotes, fn (float $x) => $x >= 10)), 'def' => $defAll],
+                    ['effectif' => count($allNotes) + $defAll, 'acquis' => count(array_filter($allNotes, fn(float $x) => $x >= 10)), 'def' => $defAll],
                     StatsCalculator::describe($allNotes)
                 ),
                 'statsSessionCourante' => array_merge(
-                    ['effectif' => count($curNotes) + $defCur, 'acquis' => count(array_filter($curNotes, fn (float $x) => $x >= 10)), 'def' => $defCur],
+                    ['effectif' => count($curNotes) + $defCur, 'acquis' => count(array_filter($curNotes, fn(float $x) => $x >= 10)), 'def' => $defCur],
                     StatsCalculator::describe($curNotes)
                 ),
                 'nbSessionPrecedente' => $prevCount,
@@ -859,7 +877,7 @@ final class ApofileParser
                 }
             }
         }
-        usort($out, fn (array $a, array $b) => [$b['note'], strtolower($a['nom'] . ' ' . $a['prenom'])] <=> [$a['note'], strtolower($b['nom'] . ' ' . $b['prenom'])]);
+        usort($out, fn(array $a, array $b) => [$b['note'], strtolower($a['nom'] . ' ' . $a['prenom'])] <=> [$a['note'], strtolower($b['nom'] . ' ' . $b['prenom'])]);
 
         return $out;
     }
@@ -880,17 +898,22 @@ final class ApofileParser
                 ];
             }
         }
-        usort($out, static fn (array $a, array $b): int => [$a['note'], strtolower($a['nom'])] <=> [$b['note'], strtolower($b['nom'])]);
+        usort($out, static fn(array $a, array $b): int => [$a['note'], strtolower($a['nom'])] <=> [$b['note'], strtolower($b['nom'])]);
 
         return $out;
     }
 
     /**
      * Contrôles sur un PV provisoire (à masquer pour un PV définitif) :
-     *  - ue_note_vide        : épreuve(s) vide(s) (ni note, ni ABJ/ABI) alors qu'il
-     *                          y a au moins une note dans la matière ;
-     *  - ue_single_note      : une seule épreuve notée ⇒ statut DEF attendu (règle) ;
-     *  - sem_def_incoherent  : DEF dans une UE ⇒ le semestre doit être DEF et sans moyenne.
+     *  - ue_single_note      : une seule note (au total, sur les épreuves) ⇒ la mention
+     *                          de l'UE doit être DEF et la moyenne de l'UE NON calculée ;
+     *  - ue_note_vide        : une ou plusieurs case(s) d'épreuve(s) vide(s)
+     *                          (ni note, ni ABI/ABJ/DIS) alors qu'au moins une autre
+     *                          épreuve est renseignée ⇒ donnée manquante à chercher
+     *                          pour le PV final. Toutes les cases vides en revanche
+     *                          est légitime (ex. redoublant UE acquise session précédente) ;
+     *  - sem_def_incoherent  : DEF dans une UE ⇒ le semestre doit être DEF et sa moyenne
+     *                          ne doit pas être calculée.
      */
     private function detectAnomalies(array $students): array
     {
@@ -902,29 +925,64 @@ final class ApofileParser
                 $ueCode = $u['code'];
                 $ueName = $this->ues[$i]['name'] ?? $ueCode;
 
-                $numericExams = 0;
                 $totalExams = 0;
+                $numericExams = 0;
+                $filledExams = 0;
                 $emptyExams = [];
                 foreach ($u['exams'] as $ex) {
                     $totalExams++;
+                    $rawE = trim($ex['raw']);
                     if ($ex['note'] !== null) {
                         $numericExams++;
-                    } elseif (trim($ex['raw']) === '') {
-                        $emptyExams[] = $ex['name'] !== '' ? $ex['name'] : ($ex['code'] !== '' ? $ex['code'] : 'Épreuve');
+                        $filledExams++;
+                    } elseif ($rawE !== '') {
+                        $filledExams++; // mention ABI / ABJ / DIS …
+                    } else {
+                        $emptyExams[] = $ex['name'] !== ''
+                            ? $ex['name']
+                            : ($ex['code'] !== '' ? $ex['code'] : 'Épreuve');
                     }
                 }
-                $hasAnyNote = ($u['note'] !== null) || ($numericExams > 0);
 
-                if ($hasAnyNote && $emptyExams !== []) {
-                    $out[] = ['type' => 'ue_note_vide', 'id' => $s['id'], 'nom' => $s['nom'], 'prenom' => $s['prenom'],
-                        'ueCode' => $ueCode, 'ueName' => $ueName,
-                        'message' => 'Épreuve(s) vide(s) — ni note ni ABJ/ABI : ' . implode(', ', $emptyExams)];
+                // (a) Une seule note au total sur les épreuves de l'UE
+                //     → mention DEF obligatoire + moyenne UE non calculée
+                if ($totalExams >= 2 && $numericExams === 1) {
+                    $issues = [];
+                    if ($u['resultat'] !== 'DEF') {
+                        $issues[] = $u['resultat'] !== ''
+                            ? 'mention « ' . $u['resultat'] . ' » au lieu de DEF'
+                            : 'mention UE vide (DEF attendu)';
+                    }
+                    if ($u['note'] !== null) {
+                        $issues[] = 'moyenne UE calculée (' . $u['note'] . ')';
+                    }
+                    if ($issues !== []) {
+                        $out[] = [
+                            'type' => 'ue_single_note',
+                            'id' => $s['id'],
+                            'nom' => $s['nom'],
+                            'prenom' => $s['prenom'],
+                            'ueCode' => $ueCode,
+                            'ueName' => $ueName,
+                            'message' => 'Une seule note notée pour cette UE : ' . implode(' et ', $issues),
+                        ];
+                    }
                 }
 
-                if ($totalExams >= 2 && $numericExams === 1 && $u['resultat'] !== '' && $u['resultat'] !== 'DEF') {
-                    $out[] = ['type' => 'ue_single_note', 'id' => $s['id'], 'nom' => $s['nom'], 'prenom' => $s['prenom'],
-                        'ueCode' => $ueCode, 'ueName' => $ueName,
-                        'message' => 'Seule une épreuve est notée, statut « ' . $u['resultat'] . ' » (règle : DEF attendu)'];
+                // (b) Case(s) d'épreuve(s) vide(s) — ni note, ni ABI/ABJ — alors que
+                //     d'autres épreuves sont renseignées ⇒ donnée manquante à chercher.
+                //     Le cas « toutes les cases vides » est exclu (légitime : UE acquise
+                //     session précédente, ou étudiant non concerné).
+                if ($totalExams >= 2 && $filledExams > 0 && $filledExams < $totalExams) {
+                    $out[] = [
+                        'type' => 'ue_note_vide',
+                        'id' => $s['id'],
+                        'nom' => $s['nom'],
+                        'prenom' => $s['prenom'],
+                        'ueCode' => $ueCode,
+                        'ueName' => $ueName,
+                        'message' => 'Case(s) vide(s) à compléter pour le PV final : ' . implode(', ', $emptyExams),
+                    ];
                 }
 
                 if ($u['resultat'] === 'DEF') {
@@ -932,20 +990,29 @@ final class ApofileParser
                 }
             }
 
+            // (c) DEF dans une UE ⇒ semestre DEF et moyenne semestre non calculée
             if ($hasUeDef) {
                 $semRes = $s['sem']['resultat'] ?? '';
                 $semNote = $s['sem']['note'] ?? null;
                 $issues = [];
                 if ($semRes !== 'DEF') {
-                    $issues[] = $semRes !== '' ? 'résultat semestre « ' . $semRes . ' »' : 'résultat semestre vide';
+                    $issues[] = $semRes !== ''
+                        ? 'résultat semestre « ' . $semRes . ' »'
+                        : 'résultat semestre vide (DEF attendu)';
                 }
                 if ($semNote !== null) {
                     $issues[] = 'moyenne semestre calculée (' . $semNote . ')';
                 }
                 if ($issues !== []) {
-                    $out[] = ['type' => 'sem_def_incoherent', 'id' => $s['id'], 'nom' => $s['nom'], 'prenom' => $s['prenom'],
-                        'ueCode' => '', 'ueName' => '',
-                        'message' => 'DEF dans une UE mais ' . implode(' et ', $issues)];
+                    $out[] = [
+                        'type' => 'sem_def_incoherent',
+                        'id' => $s['id'],
+                        'nom' => $s['nom'],
+                        'prenom' => $s['prenom'],
+                        'ueCode' => '',
+                        'ueName' => '',
+                        'message' => 'DEF dans une UE mais ' . implode(' et ', $issues),
+                    ];
                 }
             }
         }
@@ -1001,7 +1068,7 @@ final class ApofileParser
                     'code' => $ue['code'],
                     'name' => $ue['name'],
                     'effectif' => count($notes) + $def,
-                    'acquis' => count(array_filter($notes, static fn (float $x): bool => $x >= 10)),
+                    'acquis' => count(array_filter($notes, static fn(float $x): bool => $x >= 10)),
                     'def' => $def,
                 ],
                 StatsCalculator::describe($notes),
@@ -1106,7 +1173,7 @@ final class ApofileParser
                 continue;
             }
             $parts = array_map(
-                static fn (string $p): string => html_entity_decode($p, ENT_QUOTES, 'UTF-8'),
+                static fn(string $p): string => html_entity_decode($p, ENT_QUOTES, 'UTF-8'),
                 $m[1]
             );
             foreach ($parts as $t) {
