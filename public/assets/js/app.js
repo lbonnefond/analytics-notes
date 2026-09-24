@@ -214,6 +214,7 @@
   function renderOverview() {
     destroyAllCharts();
     const m = DATA.meta;
+    const R = DATA.redoublants;
 
     document.getElementById('fileTitle').textContent = m.fileName || 'Analyse';
     const bits = [];
@@ -287,10 +288,18 @@
 
   function overviewKpisHtml() {
     const k = DATA.kpis;
+    const R = DATA.redoublants || null;
     const rep = k.repartition || {};
     const pct = (n) => k.effectif ? (n / k.effectif * 100).toFixed(1).replace('.', ',') + ' %' : '—';
-    return '<section><div class="kpis-row">' + kpiCards([
+    const items = [
       ['Effectif', k.effectif, 'étudiants'],
+    ];
+    if (R) {
+      items.push(['Redoublants', R.matched, R.requested !== R.matched
+        ? 'sur ' + R.requested + ' identifiant(s) fourni(s)'
+        : 'tous identifiés']);
+    }
+    items.push(
       ['ADM', rep.ADM || 0, pct(rep.ADM || 0)],
       ['AJ', rep.AJ || 0, pct(rep.AJ || 0)],
       ['DEF', rep.DEF || 0, pct(rep.DEF || 0)],
@@ -298,7 +307,8 @@
       ['Médiane sem.', fmt(k.semNote.median)],
       ['Écart-type sem.', fmt(k.semNote.std)],
       ['Moyenne (admis)', fmt(k.semNoteAdmis.mean), 'n = ' + (k.semNoteAdmis.n || 0)]
-    ]) + '</div></section>';
+    );
+    return '<section><div class="kpis-row">' + kpiCards(items) + '</div></section>';
   }
 
   function drawSemester() {

@@ -31,6 +31,40 @@ if (count($names) < 2) {
     fail('Le mode multi-parcours nécessite au moins 2 fichiers.');
 }
 
+/* ⬅ NOUVEAU — REJET PRÉCOCE : tous les fichiers doivent être du même
+   niveau/semestre (même regex qu'ApofileParser::parseFileNameMeta).
+   Le fichier hétérogène est refusé AVANT tout parsing, avec un message
+   précis à l'écran. */
+$cohorts = [];
+foreach ($names as $n) {
+    $name = basename((string) $n);
+    if (preg_match('/(L\d{1,2})\s*(S\d{1,2})\s*([A-Z]{2,})/i', $name, $m)) {
+        $key = strtoupper($m[1]) . '/' . strtoupper($m[2]);
+        $cohorts[$key][] = $name;
+    }
+}
+if (count($cohorts) > 1) {
+    $ref = '';
+    $max = 0;
+    foreach ($cohorts as $k => $fs) {
+        if (count($fs) > $max) {
+            $max = count($fs);
+            $ref = $k;
+        }
+    }
+    $outsiders = [];
+    foreach ($cohorts as $k => $fs) {
+        if ($k !== $ref) {
+            foreach ($fs as $f) {
+                $outsiders[] = '« ' . $f . ' » (' . $k . ')';
+            }
+        }
+    }
+    fail('Fichier(s) refusé(s) : ' . implode(', ', $outsiders)
+        . ' — tous les fichiers doivent être du même niveau/semestre (' . $ref . ').');
+}
+/* FIN DU BLOC NOUVEAU */
+
 $storage = dirname(__DIR__, 2) . '/storage';
 if (!is_dir($storage) && !mkdir($storage, 0775, true)) {
     fail('Impossible de créer le dossier storage/.');
@@ -89,7 +123,8 @@ try {
     }
 
     // Cohorte commune (niveau + semestre) : affichée une seule fois en titre ;
-    // les écarts sont signalés.
+    // les écarts sont signalés. (Fond de sécurité : le rejet précoce ci-dessus
+    // rend ce cas en pratique inatteignable.)
     $multiNiveau = null;
     $multiSemestre = null;
     $cohortKeys = [];
@@ -122,7 +157,7 @@ try {
                 }
             }
         }
-    }    
+    }
 
     $multi = [
         'meta' => [

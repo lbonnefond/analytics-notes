@@ -28,6 +28,9 @@ details { margin-top: 10px; }
 details summary { cursor: pointer; }
 .btn { display: inline-block; margin-top: 18px; padding: 10px 22px; border-radius: 9px; border: 0; background: #2563eb; color: #fff; font-size: 15px; cursor: pointer; }
 .btn:disabled { background: #a7b6d8; cursor: not-allowed; }
+.filechips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: #eef3fb; border: 1px solid #cdd8ea; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.chip button { border: 0; background: transparent; cursor: pointer; font-size: 16px; color: #5c6a7d; line-height: 1; padding: 0; }
 .progress { display: none; margin-top: 18px; }
 .progress.show { display: block; }
 .bar { height: 8px; background: #e3e8ef; border-radius: 4px; overflow: hidden; }

@@ -222,9 +222,9 @@
       .map((x) => '<div class="warn">⚠ ' + esc(x) + '</div>').join('');
 
     document.getElementById('main').innerHTML =
-      kpisHtml() + byParcoursHtml() + semDistHtml() + sharedHtml() + sharedCardsHtml() +
-      specificHtml() + specificCardsHtml() + groupsHtml() + redoublantsHtml() +
-      absencesHtml() + semBorderlineHtml() + borderlineHtml() + anomaliesHtml() +
+      kpisHtml() + byParcoursHtml() + semDistHtml() + groupsHtml() +
+      sharedHtml() + sharedCardsHtml() + specificHtml() + specificCardsHtml() +
+      redoublantsHtml() + absencesHtml() + semBorderlineHtml() + borderlineHtml() + anomaliesHtml() +
       '<div class="footer">Vue globale générée le ' + esc(meta.generatedAt || '') + ' · données conservées 24 h</div>';
 
     drawParcours();
@@ -242,10 +242,16 @@
 
   function kpisHtml() {
     const k = DATA.global.kpis;
+    const R = DATA.global.redoublants || null;
     const rep = k.repartition || {};
     const pct = (n) => k.effectif ? (n / k.effectif * 100).toFixed(1).replace('.', ',') + ' %' : '—';
-    return '<section><div class="kpis-row">' + kpiCards([
+    const items = [
       ['Effectif total', k.effectif, 'étudiants'],
+    ];
+    if (R) {
+      items.push(['Redoublants', R.matched, 'présent(s) dans les fichiers']);
+    }
+    items.push(
       ['ADM', rep.ADM || 0, pct(rep.ADM || 0)],
       ['AJ', rep.AJ || 0, pct(rep.AJ || 0)],
       ['DEF', rep.DEF || 0, pct(rep.DEF || 0)],
@@ -253,7 +259,8 @@
       ['Médiane sem.', fmt(k.semNote.median)],
       ['Écart-type sem.', fmt(k.semNote.std)],
       ['Moyenne (admis)', fmt(k.semNoteAdmis.mean), 'n = ' + (k.semNoteAdmis.n || 0)]
-    ]) + '</div></section>';
+    );
+    return '<section><div class="kpis-row">' + kpiCards(items) + '</div></section>';
   }
 
   function byParcoursHtml() {
