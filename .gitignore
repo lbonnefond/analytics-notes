@@ -1,0 +1,23 @@
+# Dépendances Composer
+/vendor/
+
+# Résultats et exports générés
+/storage/*.json
+/output/
+/tmp/
+/*.zip
+/*.csv
+
+# Fichiers de test SENSIBLES (données réelles d'étudiants !)
+/APO_*.xlsx
+/_absences.xlsx
+/*.xlsx
+
+# Environnement
+/.env
+*.local.php
+
+# Éditeurs / OS
+/.idea/
+.vscode/
+.DS_Store

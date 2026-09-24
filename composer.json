@@ -1,0 +1,15 @@
+{
+    "name": "local/analytics-notes",
+    "description": "Analyse interactive de relevés de notes APO_*.xlsx (Licence)",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.0",
+        "phpoffice/phpspreadsheet": "^1.29 || ^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "AnalyticsNotes\\": "src/"
+        }
+    }
+}
