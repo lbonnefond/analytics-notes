@@ -224,7 +224,8 @@
     document.getElementById('main').innerHTML =
       kpisHtml() + byParcoursHtml() + semDistHtml() + groupsHtml() +
       sharedHtml() + sharedCardsHtml() + specificHtml() + specificCardsHtml() +
-      redoublantsHtml() + absencesHtml() + semBorderlineHtml() + borderlineHtml() + anomaliesHtml() +
+      redoublantsHtml() + semBorderlineHtml() + borderlineHtml() +
+      absencesHtml() + examAbsencesHtml() + anomaliesHtml() +
       '<div class="footer">Vue globale générée le ' + esc(meta.generatedAt || '') + ' · données conservées 24 h</div>';
 
     drawParcours();
@@ -299,7 +300,7 @@
   }
 
   function semDistHtml() {
-    return '<section><div class="section-head"><h2 style="margin:0">Note du semestre — distribution</h2>' +
+    return '<section><div class="section-head"><h2 style="margin:0">Distribution des Notes du semestre</h2>' +
       '<div class="actions">' +
       '<div class="toggle"><button id="semNorm">Normalisé (%)</button><button id="semAbs" class="active">Effectifs bruts</button></div>' +
       '<div class="toggle"><button id="semAll" class="active">Tous</button><button id="semAdmis">Admis</button></div>' +
@@ -452,7 +453,7 @@
       '<td>' + fmt(s.mean) + '</td>' +
       '</tr>'
     ).join('');
-    return '<section><h2>Matières spécifiques (un seul parcours)</h2>' +
+    return '<section><h2>Matières spécifiques à un seul parcours</h2>' +
       '<p class="muted">Clic sur une ligne : analyse détaillée (notes de l\'UE et de ses épreuves).</p>' +
       '<div class="table-wrap"><table><thead><tr><th>Code</th><th>Matière</th><th>Parcours</th><th>Eff.</th><th>ACQ %</th><th>Moy.</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
   }
@@ -606,13 +607,71 @@
       '<td>' + nameColored(r.label, r.g) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
       cnt(r.DIS) + cnt(r.ABJ) + cnt(r.ABI) + '</tr>'
     ).join('');
-    return '<section><div class="section-head"><h2 style="margin:0">Défaillants avec absences — liste jury</h2>' +
+    return '<section><div class="section-head"><h2 style="margin:0">Défaillants avec absences</h2>' +
       '<a class="btn small" href="api/export.php?token=' + encodeURIComponent(TOKEN) + '&type=csvg:absences">CSV</a></div>' +
       listTabsHtml('absTable', counts, list.length) +
       (list.length
         ? '<div class="table-wrap"><table id="absTable"><thead><tr><th>Parcours</th><th>N°Etu</th><th>Nom</th><th>Prénom</th><th>DIS</th><th>ABJ</th><th>ABI</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
         : '<p class="muted">Aucun étudiant.</p>') +
       '<p class="muted">Clic sur une ligne : fiche de l\'étudiant.</p></section>';
+  }
+
+  /* ---------- DIS / ABI / ABJ par épreuve (une matière par ligne) ---------- */
+  function examAbsencesHtml() {
+    // Réunir les matières (partagées + spécifiques) avec leurs épreuves
+    const subjects = [];
+    (DATA.global.sharedSubjects || []).forEach((s) => {
+      const name = (s.names && s.names.length) ? s.names.join(' / ') : (s.name || s.code);
+      subjects.push({
+        name,
+        groups: (s.groups || []).map((p) => ({ label: p.label, g: p.g, exams: p.exams || [] }))
+      });
+    });
+    (DATA.global.specificSubjects || []).forEach((s) => {
+      subjects.push({
+        name: s.name || s.code,
+        groups: [{ label: s.label, g: s.g, exams: s.exams || [] }]
+      });
+    });
+    if (!subjects.length) return '';
+
+    const rows = subjects.map((subj) => {
+      // Aggréger DIS/ABI/ABJ par épreuve (clé = nom d'épreuve), tous parcours confondus
+      const examMap = {};
+      subj.groups.forEach((p) => {
+        (p.exams || []).forEach((ex, idx) => {
+          const key = ex.name || ex.code || ('Épreuve ' + (idx + 1));
+          if (!examMap[key]) examMap[key] = { display: ex.name || ex.code || ('Épreuve ' + (idx + 1)), DIS: 0, ABI: 0, ABJ: 0 };
+          Object.entries(ex.rawCounts || {}).forEach(([code, n]) => {
+            const c = Number(n) || 0;
+            if (code === 'DIS') examMap[key].DIS += c;
+            else if (code === 'ABI') examMap[key].ABI += c;
+            else if (code === 'ABJ') examMap[key].ABJ += c;
+          });
+        });
+      });
+
+      const parcours = subj.groups.map((p) => nameColored(p.label, p.g)).join(', ');
+      const examBlocks = Object.values(examMap).map((c) => {
+        const parts = [];
+        if (c.DIS) parts.push('DIS ' + c.DIS);
+        if (c.ABI) parts.push('ABI ' + c.ABI);
+        if (c.ABJ) parts.push('ABJ ' + c.ABJ);
+        const has = parts.length > 0;
+        return '<div class="exam-abs-block">' +
+          '<div class="exam-abs-name">' + esc(c.display) + '</div>' +
+          '<div class="' + (has ? 'exam-abs-yes' : 'exam-abs-no') + '">' +
+          (has ? parts.join(' · ') : 'aucune absence') + '</div>' +
+          '</div>';
+      }).join('');
+
+      return '<tr><td>' + esc(subj.name) + '</td><td>' + parcours + '</td>' +
+        '<td class="exam-abs-cell">' + (examBlocks || '<span class="muted">Aucune épreuve</span>') + '</td></tr>';
+    }).join('');
+
+    return '<section><div class="section-head"><h2 style="margin:0">Absences par épreuve (DIS / ABI / ABJ)</h2></div>' +
+      '<p class="muted">Une matière par ligne ; les épreuves sont listées en dessous. Pour les matières partagées, les mentions sont additionnées sur tous les parcours. Rouge quand il y a des absences.</p>' +
+          '<div class="table-wrap"><table id="examAbsTable"><thead><tr><th>Matière</th><th>Parcours</th><th>Épreuves</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
   }
 
   function semBorderlineHtml() {
@@ -623,7 +682,7 @@
       '<td>' + nameColored(r.label, r.g) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
       '<td>' + fmt(r.note, 3) + '</td><td>' + badge(r.resultat) + '</td></tr>'
     ).join('');
-    return '<section><div class="section-head"><h2 style="margin:0">Notes de semestre entre 9,95 et 10 — liste jury</h2>' +
+    return '<section><div class="section-head"><h2 style="margin:0">Notes de semestre entre 9,95 et 10</h2>' +
       '<a class="btn small" href="api/export.php?token=' + encodeURIComponent(TOKEN) + '&type=csvg:sem_borderline">CSV</a></div>' +
       listTabsHtml('semBlTable', counts, list.length) +
       (list.length
@@ -640,7 +699,7 @@
       '<td>' + nameColored(r.label, r.g) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
       '<td>' + fmt(r.note, 3) + '</td><td class="mono">' + esc(r.ueCode) + '</td><td>' + esc(r.ueName) + '</td></tr>'
     ).join('');
-    return '<section><div class="section-head"><h2 style="margin:0">Notes entre 9,95 et 10 — matières à corriger</h2>' +
+    return '<section><div class="section-head"><h2 style="margin:0">Notes UE entre 9,95 et 10</h2>' +
       '<a class="btn small" href="api/export.php?token=' + encodeURIComponent(TOKEN) + '&type=csvg:borderline">CSV</a></div>' +
       listTabsHtml('blTable', counts, list.length) +
       (list.length

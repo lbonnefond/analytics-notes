@@ -159,6 +159,21 @@ tbody tr.clickable:hover { background: #f5f8ff; }
 /* ---------- Contrôles PV ---------- */
 .anom-section .muted { margin: 8px 0; }
 
+/* ---------- Absences par épreuve ---------- */
+.exam-abs-cell { display: flex; flex-wrap: wrap; gap: 6px; }
+.exam-abs-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  min-width: 130px;
+  background: #f8fafc;
+}
+.exam-abs-name { font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+.exam-abs-yes { color: #dc2626; font-weight: 600; font-size: 12px; margin-top: 2px; }
+.exam-abs-no { color: var(--muted); font-size: 12px; margin-top: 2px; }
+#examAbsTable td:nth-child(1), #examAbsTable th:nth-child(1) { min-width: 240px; }
+#examAbsTable td:nth-child(2), #examAbsTable th:nth-child(2) { min-width: 240px; }
+
 /* ---------- Utilitaires (coloration des valeurs) ---------- */
 .bad { color: #dc2626; font-weight: 650; }
 .good { color: #2563eb; font-weight: 650; }
