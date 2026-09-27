@@ -940,11 +940,23 @@ final class ApofileParser
                 ];
             }
 
+            // Matières sans note : l'effectif = le nombre d'étudiants ayant une
+            // mention de matière (ACQ / NACQ / DEF) dans la colonne Résultat.
+            $noNoteEffectif = 0;
+            if ($ue['col'] === null) {
+                foreach (['ACQ', 'NACQ', 'DEF'] as $mk) {
+                    $noNoteEffectif += $resCounts[$mk] ?? 0;
+                }
+            }
+            $effectif = ($ue['col'] === null)
+                ? $noNoteEffectif
+                : (count($allNotes) + $defAll);
+
             $result[] = [
                 'code' => $ue['code'],
                 'name' => $ue['name'],
                 'stats' => array_merge(
-                    ['effectif' => count($allNotes) + $defAll, 'acquis' => count(array_filter($allNotes, fn(float $x) => $x >= 10)), 'def' => $defAll],
+                    ['effectif' => $effectif, 'acquis' => count(array_filter($allNotes, fn(float $x) => $x >= 10)), 'def' => $defAll],
                     StatsCalculator::describe($allNotes)
                 ),
                 'statsSessionCourante' => array_merge(

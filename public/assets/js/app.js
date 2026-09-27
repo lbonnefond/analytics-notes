@@ -247,10 +247,10 @@
       ((R && R.matched > 0) ? '<button id="semRed">Redoublants</button>' : '') +
       '</div></div>' +
       '<div class="chart-box tall"><canvas id="semCanvas"></canvas></div></section>' +
+      ueStatsTableHtml() +
       '<section><h2>Matières (UE) — cliquer sur une carte pour le détail</h2>' +
       '<div class="ue-grid">' + DATA.ues.map((ue, i) => ueCardHtml(ue, i)).join('') + '</div></section>' +
-      ueStatsTableHtml() +
-      redoublantsHtml() +
+            redoublantsHtml() +
       semBorderlineHtml() +
       borderlineHtml() +
       absencesHtml() +
