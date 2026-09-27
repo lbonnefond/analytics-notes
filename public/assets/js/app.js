@@ -251,8 +251,11 @@
       '<div class="ue-grid">' + DATA.ues.map((ue, i) => ueCardHtml(ue, i)).join('') + '</div></section>' +
       ueStatsTableHtml() +
       redoublantsHtml() +
-      absencesHtml() +
+      semBorderlineHtml() +
       borderlineHtml() +
+      absencesHtml() +
+      examAbsencesHtml() +
+      anomaliesHtml() +
       '<div class="footer">Analyse générée le ' + esc(m.generatedAt || '') +
       ' · données conservées 24 h · token ' + esc(TOKEN.slice(0, 8)) + '…</div>';
 
@@ -284,6 +287,15 @@
       tr.addEventListener('click', () => renderUeDetail(Number(tr.dataset.i)));
     });
     bindStudentLinks();
+    const anomToggle = document.getElementById('anomToggle');
+    if (anomToggle) {
+      const wrap = document.getElementById('anomTableWrap');
+      anomToggle.addEventListener('click', () => {
+        const hidden = wrap.style.display === 'none';
+        wrap.style.display = hidden ? '' : 'none';
+        anomToggle.textContent = hidden ? 'Masquer' : 'Afficher';
+      });
+    }
   }
 
   function overviewKpisHtml() {
@@ -500,6 +512,91 @@
         ? '<div class="table-wrap"><table><thead><tr><th>N°Etu</th><th>Nom</th><th>Prénom</th><th>Note</th><th>CODE UE</th><th>Matière</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
         : '<p class="muted">Aucun étudiant.</p>') +
       '<p class="muted">Clic sur une ligne : fiche de l\'étudiant.</p></section>';
+  }
+
+  function semBorderlineHtml() {
+    const list = DATA.semBorderline || [];
+    const rows = list.map((r) =>
+      '<tr class="clickable student-row" data-id="' + esc(r.id) + '" data-nom="' + esc(r.nom) + '" data-prenom="' + esc(r.prenom) + '">' +
+      '<td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
+      '<td>' + fmt(r.note, 3) + '</td><td>' + badge(r.resultat) + '</td></tr>'
+    ).join('');
+    return '<section><div class="section-head"><h2 style="margin:0">Notes de semestre entre 9,95 et 10 (' + list.length + ')</h2>' +
+      '<a class="btn small" href="api/export.php?token=' + TOKEN + '&type=csv:sem_borderline">CSV</a></div>' +
+      (list.length
+        ? '<div class="table-wrap"><table><thead><tr><th>N°Etu</th><th>Nom</th><th>Prénom</th><th>Note sem.</th><th>Résultat</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        : '<p class="muted">Aucun étudiant.</p>') +
+      '<p class="muted">Clic sur une ligne : fiche de l\'étudiant.</p></section>';
+  }
+
+  function examAbsencesHtml() {
+    const subjects = DATA.ues || [];
+    if (!subjects.length) return '';
+
+    const rows = subjects.map((subj) => {
+      const examMap = {};
+      (subj.exams || []).forEach((ex, idx) => {
+        const key = ex.name || ex.code || ('Épreuve ' + (idx + 1));
+        if (!examMap[key]) examMap[key] = { display: ex.name || ex.code || ('Épreuve ' + (idx + 1)), DIS: 0, ABI: 0, ABJ: 0 };
+        Object.entries(ex.rawCounts || {}).forEach(([code, n]) => {
+          const c = Number(n) || 0;
+          if (code === 'DIS') examMap[key].DIS += c;
+          else if (code === 'ABI') examMap[key].ABI += c;
+          else if (code === 'ABJ') examMap[key].ABJ += c;
+        });
+      });
+      const examBlocks = Object.values(examMap).map((c) => {
+        const parts = [];
+        if (c.DIS) parts.push('DIS ' + c.DIS);
+        if (c.ABI) parts.push('ABI ' + c.ABI);
+        if (c.ABJ) parts.push('ABJ ' + c.ABJ);
+        const has = parts.length > 0;
+        return '<div class="exam-abs-block"><div class="exam-abs-name">' + esc(c.display) + '</div>' +
+          '<div class="' + (has ? 'exam-abs-yes' : 'exam-abs-no') + '">' + (has ? parts.join(' · ') : 'aucune absence') + '</div></div>';
+      }).join('');
+      return '<tr><td>' + esc(subj.name || subj.code) + '</td>' +
+        '<td class="exam-abs-cell">' + (examBlocks || '<span class="muted">Aucune épreuve</span>') + '</td></tr>';
+    }).join('');
+
+    return '<section><div class="section-head"><h2 style="margin:0">Absences par épreuve (DIS / ABI / ABJ)</h2></div>' +
+      '<p class="muted">Une matière par ligne ; les épreuves sont listées en dessous. Rouge quand il y a des absences.</p>' +
+      '<div class="table-wrap"><table id="examAbsTable"><thead><tr><th>Matière</th><th>Épreuves</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+  }
+
+  function anomaliesHtml() {
+    const A = DATA.anomalies || [];
+    if (!A.length) return '';
+    const labels = {
+      ue_note_vide: 'Case(s) d\'épreuve(s) vide(s) — donnée manquante',
+      ue_single_note: 'Une seule note notée (DEF + moyenne UE non calculée)',
+      sem_def_incoherent: 'DEF en UE mais incohérent au semestre'
+    };
+    const counts = { ue_note_vide: 0, ue_single_note: 0, sem_def_incoherent: 0 };
+    A.forEach((a) => { if (counts[a.type] !== undefined) counts[a.type]++; });
+
+    const byStudent = {};
+    for (const a of A) {
+      if (!byStudent[a.id]) byStudent[a.id] = { id: a.id, nom: a.nom, prenom: a.prenom, issues: [] };
+      byStudent[a.id].issues.push(a);
+    }
+    const students = Object.values(byStudent);
+
+    const rows = students.map((s) =>
+      '<tr class="clickable student-row" data-id="' + esc(s.id) + '" data-nom="' + esc(s.nom) + '" data-prenom="' + esc(s.prenom) + '">' +
+      '<td class="mono">' + esc(s.id) + '</td><td>' + esc(s.nom) + '</td><td>' + esc(s.prenom) + '</td>' +
+      '<td>' + s.issues.map((a) =>
+        (a.ueName ? '<div>' + esc(a.ueName) + '</div>' : '') +
+        '<div class="muted">' + esc(a.message) + '</div>'
+      ).join('') + '</td></tr>'
+    ).join('');
+
+    return '<section class="anom-section"><div class="section-head"><h2 style="margin:0">Contrôles PV provisoire <span class="muted" style="font-weight:normal">(à masquer pour un PV définitif)</span></h2>' +
+      '<button class="btn small ghost" id="anomToggle">Masquer</button></div>' +
+      '<p class="muted">' +
+      esc(labels.ue_note_vide) + ' : ' + (counts.ue_note_vide || 0) + ' · ' +
+      esc(labels.ue_single_note) + ' : ' + (counts.ue_single_note || 0) + ' · ' +
+      esc(labels.sem_def_incoherent) + ' : ' + (counts.sem_def_incoherent || 0) + '</p>' +
+      '<div class="table-wrap" id="anomTableWrap"><table><thead><tr><th>N°Etu</th><th>Nom</th><th>Prénom</th><th>Problème(s)</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
   }
 
   function bindStudentLinks() {

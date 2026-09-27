@@ -527,7 +527,18 @@
       '<div class="chart-box" style="margin-top:14px"><canvas id="subjGlobalCanvas"></canvas></div>';
 
     if (perProgram) {
-      body += '<h3>Par parcours</h3><div class="exams-grid">' + perProgram.map((p) =>
+      // Tableau comparatif : un parcours par ligne (sous l'histogramme global)
+      const pRows = perProgram.map((p) =>
+        '<tr><td>' + nameColored(p.label, p.g) + '</td>' +
+        '<td>' + p.effectif + '</td>' +
+        '<td class="acq-cell ' + acqCls(p.acqPct) + '">' + (p.acqPct === null ? '—' : p.acqPct + ' %') + '</td>' +
+        '<td>' + fmt(p.mean) + '</td><td>' + fmt(p.median) + '</td>' +
+        '<td class="sigma-cell ' + sigmaCls(p.std) + '">' + fmt(p.std) + '</td></tr>'
+      ).join('');
+      body += '<div class="table-wrap" style="margin:14px 0">' +
+        '<table><thead><tr><th>Parcours</th><th data-numeric="1">Eff.</th><th data-numeric="1">ACQ %</th><th data-numeric="1">Moy.</th><th data-numeric="1">Méd.</th><th data-numeric="1">σ</th></tr></thead><tbody>' + pRows + '</tbody></table></div>';
+
+      body += '<h3>Parcours</h3><div class="exams-grid">' + perProgram.map((p) =>
         '<div class="exam-card">' +
         '<div class="name">' + nameColored(p.label, p.g) + '</div>' +
         '<div class="row"><span>Eff. <b>' + p.effectif + '</b></span><span class="acq-cell ' + acqCls(p.acqPct) + '">ACQ <b>' + (p.acqPct === null ? '—' : p.acqPct + ' %') + '</b></span></div>' +
