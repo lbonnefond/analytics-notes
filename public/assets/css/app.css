@@ -35,7 +35,10 @@ body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background:
 #warnings:empty { display: none; }
 .warn { background: #fff4e0; border: 1px solid #f2c94c; color: #7c4a03; padding: 10px 16px;
   font-size: 14px; white-space: pre-line; margin: 12px 24px 0; }
-
+.warn-box summary { cursor: pointer; font-size: 14px; font-weight: 600; color: #7c4a03;
+  background: #fff4e0; border: 1px solid #f2c94c; border-radius: 10px; padding: 10px 16px; }
+.warn-box[open] summary { border-radius: 10px 10px 0 0; }
+.warn-box .warn { margin: 8px 0 0; }
 .container { max-width: 1280px; margin: 0 auto; padding: 20px 24px 40px; }
 .loading { padding: 60px 0; text-align: center; color: var(--muted); }
 .footer { color: var(--muted); font-size: 12px; text-align: center; padding: 6px 0 24px; }

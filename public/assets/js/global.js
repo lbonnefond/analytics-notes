@@ -218,11 +218,16 @@
     if (meta.redoublantSource) bits.push('Redoublants : ' + meta.redoublantSource);
     document.getElementById('fileMeta').textContent = bits.join('  ·  ');
     document.getElementById('exportAll').href = 'api/export.php?token=' + encodeURIComponent(TOKEN) + '&type=zip';
-    document.getElementById('warnings').innerHTML = (meta.warnings || [])
-      .map((x) => '<div class="warn">⚠ ' + esc(x) + '</div>').join('');
+    const warns = meta.warnings || [];
+    document.getElementById('warnings').innerHTML = warns.length
+      ? '<details class="warn-box">' +
+      '<summary>⚠ ' + warns.length + ' avertissement' + (warns.length > 1 ? 's' : '') + ' — cliquer pour dérouler</summary>' +
+      warns.map((x) => '<div class="warn">⚠ ' + esc(x) + '</div>').join('') +
+      '</details>'
+      : '';
 
     document.getElementById('main').innerHTML =
-      kpisHtml() + byParcoursHtml() + semDistHtml() + groupsHtml() +
+      kpisHtml() + semDistHtml() + byParcoursHtml() + groupsHtml() +
       sharedHtml() + sharedCardsHtml() + specificHtml() + specificCardsHtml() +
       redoublantsHtml() + semBorderlineHtml() + borderlineHtml() +
       absencesHtml() + examAbsencesHtml() + anomaliesHtml() +
@@ -237,6 +242,12 @@
     bindSubjectClicks();
     document.querySelectorAll('.student-row').forEach((tr) => {
       tr.addEventListener('click', () => openStudent(Number(tr.dataset.g), tr.dataset.id, tr.dataset.nom, tr.dataset.prenom));
+    });
+    // Tableau « Réussite par parcours » : clic sur une ligne → analyse du parcours
+    document.querySelectorAll('#parcoursTable tbody tr').forEach((tr) => {
+      tr.addEventListener('click', () => {
+        location.href = 'analyse.php?token=' + encodeURIComponent(TOKEN) + '&g=' + tr.dataset.g;
+      });
     });
     initSearch();
   }
@@ -267,14 +278,15 @@
   function byParcoursHtml() {
     const P = DATA.global.byParcours;
     const rows = P.map((p, i) =>
-      '<tr><td>' + nameColored(p.label, i) + '</td><td class="muted mono">' + esc(p.fileName) + '</td>' +
+      '<tr class="clickable" data-g="' + i + '"><td>' + nameColored(p.label, i) + '</td><td class="muted mono">' + esc(p.fileName) + '</td>' +
       '<td>' + p.effectif + '</td><td>' + p.ADM + '</td><td>' + p.AJ + '</td><td>' + p.DEF + '</td>' +
       '<td>' + fmt(p.tauxAdm, 1) + ' %</td><td>' + fmt(p.mean) + '</td><td>' + fmt(p.median) + '</td>' +
       '<td class="sigma-cell ' + sigmaCls(p.std) + '">' + fmt(p.std) + '</td></tr>'
     ).join('');
     return '<section><h2>Réussite par parcours</h2>' +
-      '<div class="table-wrap"><table><thead><tr><th>Parcours</th><th>Fichier</th><th>Eff.</th><th>ADM</th><th>AJ</th><th>DEF</th><th>Taux ADM</th><th>Moy.</th><th>Méd.</th><th>σ</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<div class="chart-box" style="height:240px;margin-top:16px"><canvas id="parcoursCanvas"></canvas></div></section>';
+      '<div class="table-wrap"><table id="parcoursTable"><thead>…</thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="chart-box" style="height:240px;margin-top:16px"><canvas id="parcoursCanvas"></canvas></div>' +
+      '<p class="muted">Clic sur une ligne : analyse détaillée du parcours.</p></section>';
   }
 
   function drawParcours() {
@@ -300,7 +312,7 @@
   }
 
   function semDistHtml() {
-    return '<section><div class="section-head"><h2 style="margin:0">Distribution des Notes du semestre</h2>' +
+    return '<section><div class="section-head"><h2 style="margin:0">Distribution des notes du semestre</h2>' +
       '<div class="actions">' +
       '<div class="toggle"><button id="semNorm">Normalisé (%)</button><button id="semAbs" class="active">Effectifs bruts</button></div>' +
       '<div class="toggle"><button id="semAll" class="active">Tous</button><button id="semAdmis">Admis</button></div>' +
@@ -378,7 +390,7 @@
   function sharedHtml() {
     const S = DATA.global.sharedSubjects;
     const mode = DATA.global.matchMode || 'code4';
-    const modeLabel = { code4: 'les 4 derniers caractères du code', code2: 'les 2 derniers caractères du code', name: 'le nom de la matière', full: 'le code complet' }[mode] || mode;
+    const modeLabel = { code4: 'les 4 derniers caractères du code + le 1er mot du nom de la matière', code2: 'les 2 derniers caractères du code', name: 'le nom de la matière', full: 'le code complet' }[mode] || mode;
     if (!S.length) {
       return '<section><h2>Matières partagées</h2><p class="muted">Aucune matière commune détectée entre les parcours.</p></section>';
     }
@@ -393,8 +405,8 @@
         '<td class="sigma-cell ' + sigmaCls(c.std) + '">' + fmt(c.std) + '</td>' +
         '</tr>';
     }).join('');
-    return '<section><h2>Matières partagées (présentes dans ≥ 2 parcours)</h2>' +
-      '<p class="muted">Matching par ' + modeLabel + '. Statistiques combinées (tous les étudiants de tous les parcours qui suivent la matière). Les codes sont colorés par parcours. Clic sur une ligne : analyse détaillée.</p>' +
+    return '<section><h2>Matières communes (présentes dans au moins 2 parcours)</h2>' +
+      '<p class="muted">Identification par ' + modeLabel + '. Statistiques combinées (tous les étudiants de tous les parcours qui suivent la matière). Les codes sont colorés par parcours. Clic sur une ligne : analyse détaillée.</p>' +
       '<div class="table-wrap"><table><thead><tr><th>Matière</th><th>Eff. total</th><th>ACQ %</th><th>Moy.</th><th>Méd.</th><th>σ</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<div class="chart-box" style="height:' + Math.max(320, S.length * 44 + 80) + 'px;margin-top:16px"><canvas id="sharedCanvas"></canvas></div>' +
       '<p class="muted">Comparatif des moyennes par parcours.</p></section>';
@@ -670,8 +682,8 @@
     }).join('');
 
     return '<section><div class="section-head"><h2 style="margin:0">Absences par épreuve (DIS / ABI / ABJ)</h2></div>' +
-      '<p class="muted">Une matière par ligne ; les épreuves sont listées en dessous. Pour les matières partagées, les mentions sont additionnées sur tous les parcours. Rouge quand il y a des absences.</p>' +
-          '<div class="table-wrap"><table id="examAbsTable"><thead><tr><th>Matière</th><th>Parcours</th><th>Épreuves</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+      '<p class="muted">Une matière par ligne ; les épreuves sont listées en dessous. Pour les matières communes, les mentions sont additionnées sur tous les parcours. Rouge quand il y a des absences.</p>' +
+      '<div class="table-wrap"><table id="examAbsTable"><thead><tr><th>Matière</th><th>Parcours</th><th>Épreuves</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
   }
 
   function semBorderlineHtml() {
@@ -699,7 +711,7 @@
       '<td>' + nameColored(r.label, r.g) + '</td><td class="mono">' + esc(r.id) + '</td><td>' + esc(r.nom) + '</td><td>' + esc(r.prenom) + '</td>' +
       '<td>' + fmt(r.note, 3) + '</td><td class="mono">' + esc(r.ueCode) + '</td><td>' + esc(r.ueName) + '</td></tr>'
     ).join('');
-    return '<section><div class="section-head"><h2 style="margin:0">Notes UE entre 9,95 et 10</h2>' +
+    return '<section><div class="section-head"><h2 style="margin:0">Notes de l\'UE entre 9,95 et 10</h2>' +
       '<a class="btn small" href="api/export.php?token=' + encodeURIComponent(TOKEN) + '&type=csvg:borderline">CSV</a></div>' +
       listTabsHtml('blTable', counts, list.length) +
       (list.length

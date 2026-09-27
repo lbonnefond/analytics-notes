@@ -447,6 +447,9 @@ final class ApofileParser
     private function findUes(): array
     {
         $ues = [];
+        $taken = []; // colonnes déjà rattachées à une UE
+
+        // — Passe 1 : les UE avec colonne Note —
         foreach ($this->cols as $c => $col) {
             $p = $this->norm($col['parent']);
             $ch = $this->norm($col['child']);
@@ -456,20 +459,92 @@ final class ApofileParser
             if (strlen($col['child']) > 20 || !str_contains($ch, 'note')) {
                 continue;
             }
+
+            // Résultat dans les 3 colonnes suivantes ; on s'arrête si on croise
+            // une autre colonne « Note » avant (bloc « BP » / note d'option).
+            $resCol = null;
+            for ($d = 1; $d <= 3; $d++) {
+                $cc = $this->cols[$c + $d] ?? null;
+                if ($cc === null) {
+                    break;
+                }
+                $nch = $this->norm($cc['child']);
+                if (str_contains($nch, 'resultat')) {
+                    $resCol = $c + $d;
+                    break;
+                }
+                if (str_contains($nch, 'note')) {
+                    break;
+                }
+            }
+            if ($resCol === null) {
+                continue;
+            }
+
+            $credCol = null;
+            for ($d = 1; $d <= 2; $d++) {
+                $cc = $this->cols[$resCol + $d] ?? null;
+                if ($cc !== null && str_contains($this->norm($cc['child']), 'credits')) {
+                    $credCol = $resCol + $d;
+                    break;
+                }
+            }
+            if ($credCol === null) {
+                continue;
+            }
+
             [$code, $name] = self::splitUeLabel($col['parent']);
             $ues[] = [
                 'col' => $c,
                 'code' => $code,
                 'name' => $name,
-                'resultatCol' => $this->findNearChild($c, 'resultat', 3),
-                'creditsCol' => $this->findNearChild($c, 'credits', 5),
+                'parentLabel' => $col['parent'],
+                'resultatCol' => $resCol,
+                'creditsCol' => $credCol,
                 'anSessionCol' => $this->findNearChild($c, 'an/session', 5),
                 'es1Col' => $this->findNearChild($c, 'es1', 5),
                 'exams' => [],
             ];
-            if ($ues[count($ues) - 1]['resultatCol'] === null) {
-                $this->warnings[] = sprintf('UE %s : colonne « Résultat » non trouvée juste après la note.', $code);
+            for ($d = 0; $d <= $credCol - $c; $d++) {
+                $taken[$c + $d] = true;
             }
+        }
+
+        // — Passe 2 : les matières SANS note ([Résultat][Crédits]) —
+        foreach ($this->cols as $c => $col) {
+            if (isset($taken[$c])) {
+                continue; // déjà consommée par une UE de la passe 1
+            }
+            $p = $this->norm($col['parent']);
+            $ch = $this->norm($col['child']);
+            if (!str_contains($p, 'elp') || str_contains($p, 'semestre')) {
+                continue;
+            }
+            if (strlen($col['child']) > 20) {
+                continue;
+            }
+            if (!str_contains($ch, 'resultat') || str_contains($ch, 'note')) {
+                continue;
+            }
+            $cc = $this->cols[$c + 1] ?? null;
+            if ($cc === null || !str_contains($this->norm($cc['child']), 'credits')) {
+                continue;
+            }
+
+            [$code, $name] = self::splitUeLabel($col['parent']);
+            $ues[] = [
+                'col' => null,
+                'code' => $code,
+                'name' => $name,
+                'parentLabel' => $col['parent'],
+                'resultatCol' => $c,
+                'creditsCol' => $c + 1,
+                'anSessionCol' => null,
+                'es1Col' => null,
+                'exams' => [],
+            ];
+            $taken[$c] = true;
+            $taken[$c + 1] = true;
         }
 
         return $ues;
@@ -492,13 +567,33 @@ final class ApofileParser
     private function attachExams(array $ues): array
     {
         foreach ($ues as $i => $ue) {
-            $stop = $i + 1 < count($ues) ? $ues[$i + 1]['col'] : $this->headerLast + 1;
-            for ($c = $ue['col'] + 1; $c < $stop; $c++) {
+            $next = $i + 1 < count($ues) ? $ues[$i + 1] : null;
+            $stop = $next !== null
+                ? ($next['col'] ?? $next['resultatCol'])   // UE sans note : sa 1re colonne est son Résultat
+                : $this->headerLast + 1;
+            $start = $ue['col'] ?? $ue['resultatCol'];
+            for ($c = $start + 1; $c < $stop; $c++) {
                 $col = $this->cols[$c] ?? null;
                 if ($col === null || strlen($col['child']) > 20 || !str_contains($this->norm($col['child']), 'note')) {
                     continue;
                 }
-                [$code, $name] = self::splitExamLabel($col['parent']);
+
+                $label = trim($col['parent']);
+                if (str_contains($this->norm($label), 'elp')) {
+                    // Colonne portant son propre libellé ELP (pas une EPR standard) :
+                    //  - libellé identique à celui de la UE précédente (parent fusionné
+                    //    ou propagé) → épreuve standard de la UE ;
+                    //  - porte la mention « BP » (bloc pédagogique, ex.
+                    //    « ELP VIA2DM2 BP2 PAM ») → épreuve de la UE précédente ;
+                    //  - sinon (ex. « ELP VI1DDB1 Orientation BCPO ou AA ») → ignorée
+                    //    totalement (ni UE, ni épreuve).
+                    $ueLabel = trim($ue['parentLabel'] ?? '');
+                    if ($label !== $ueLabel && !str_contains($label, 'BP')) {
+                        continue;
+                    }
+                }
+
+                [$code, $name] = self::splitExamLabel($label);
                 $ues[$i]['exams'][] = ['col' => $c, 'code' => $code, 'name' => $name];
             }
         }
@@ -530,9 +625,9 @@ final class ApofileParser
         if (preg_match('/^EPR\s+(\S+)$/i', $label, $m)) {
             return [trim($m[1]), ''];
         }
-        if (str_contains($label, 'ELP')) {
-            // parent fusionné sur l'intégralité du bloc UE : épreuve sans libellé propre
-            return ['', 'Épreuve'];
+        if (preg_match('/^ELP\s+(\S+)(?:\s+(.+))?$/i', $label, $m)) {
+            // bloc ELP rattaché comme épreuve (bloc pédagogique « BP », note d'option…)
+            return [trim($m[1]), trim($m[2] ?? '')];
         }
 
         return ['', $label];
@@ -542,7 +637,9 @@ final class ApofileParser
     {
         $known = [];
         foreach ($this->ues as $ue) {
-            $known[$ue['col']] = true;
+            if ($ue['col'] !== null) {
+                $known[$ue['col']] = true;
+            }
             foreach ($ue['exams'] as $ex) {
                 $known[$ex['col']] = true;
             }
@@ -659,7 +756,7 @@ final class ApofileParser
             $resRaw = $this->valueToText($this->cellAt($row, $ue['resultatCol']));
             $anSes = $this->valueToText($this->cellAt($row, $ue['anSessionCol']));
             $prev = $anSes !== ''
-                || ($noteRaw !== '' && $this->isUnderlined($ue['col'], $r))
+                || ($noteRaw !== '' && $ue['col'] !== null && $this->isUnderlined($ue['col'], $r))
                 || ($resRaw !== '' && $ue['resultatCol'] !== null && $this->isUnderlined($ue['resultatCol'], $r));
 
             $exams = [];

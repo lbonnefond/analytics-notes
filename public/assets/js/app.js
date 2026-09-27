@@ -240,14 +240,14 @@
     main.innerHTML =
       backLink +
       overviewKpisHtml() +
-      '<section><div class="section-head"><h2 style="margin:0">Note du semestre — distribution</h2>' +
+      '<section><div class="section-head"><h2 style="margin:0">Distribution des notes du semestre</h2>' +
       '<div class="toggle">' +
       '<button id="semAll" class="active">Tous les étudiants</button>' +
       '<button id="semAdmis">Admis uniquement</button>' +
       ((R && R.matched > 0) ? '<button id="semRed">Redoublants</button>' : '') +
       '</div></div>' +
       '<div class="chart-box tall"><canvas id="semCanvas"></canvas></div></section>' +
-      '<section><h2>Matières (UE) — cliquer une carte pour le détail</h2>' +
+      '<section><h2>Matières (UE) — cliquer sur une carte pour le détail</h2>' +
       '<div class="ue-grid">' + DATA.ues.map((ue, i) => ueCardHtml(ue, i)).join('') + '</div></section>' +
       ueStatsTableHtml() +
       redoublantsHtml() +
@@ -375,7 +375,7 @@
         '</tr>';
     }).join('');
     return '<section>' +
-      '<div class="section-head"><h2 style="margin:0">Statistiques par UE (portage du script Python)</h2>' +
+      '<div class="section-head"><h2 style="margin:0">Statistiques par UE</h2>' +
       '<div class="actions">' +
       '<a class="btn small" href="api/export.php?token=' + TOKEN + '&type=csv:stats_ue">CSV — toutes notes</a>' +
       '<a class="btn small ghost" href="api/export.php?token=' + TOKEN + '&type=csv:stats_ue_cur">CSV — session courante</a>' +
@@ -478,7 +478,7 @@
       cnt(r.DIS) + cnt(r.ABJ) + cnt(r.ABI) + '</tr>'
     ).join('');
     return '<section>' +
-      '<div class="section-head"><h2 style="margin:0">Défaillants en semestre avec absences (' + list.length + ') — liste jury</h2>' +
+      '<div class="section-head"><h2 style="margin:0">Défaillants au semestre avec absences (' + list.length + ') — liste jury</h2>' +
       '<a class="btn small" href="api/export.php?token=' + TOKEN + '&type=csv:absences">CSV</a></div>' +
       (list.length
         ? '<div class="table-wrap"><table><thead><tr><th>N°Etu</th><th>Nom</th><th>Prénom</th><th>DIS</th><th>ABJ</th><th>ABI</th></tr></thead><tbody>' + rows + '</tbody></table></div'
@@ -494,7 +494,7 @@
       '<td>' + fmt(r.note, 3) + '</td><td class="mono">' + esc(r.ueCode) + '</td><td>' + esc(r.ueName) + '</td></tr>'
     ).join('');
     return '<section>' +
-      '<div class="section-head"><h2 style="margin:0">Notes entre 9,95 et 10 — matières à corriger (' + list.length + ')</h2>' +
+      '<div class="section-head"><h2 style="margin:0">Notes de matières entre 9,95 et 10 (' + list.length + ')</h2>' +
       '<a class="btn small" href="api/export.php?token=' + TOKEN + '&type=csv:borderline">CSV</a></div>' +
       (list.length
         ? '<div class="table-wrap"><table><thead><tr><th>N°Etu</th><th>Nom</th><th>Prénom</th><th>Note</th><th>CODE UE</th><th>Matière</th></tr></thead><tbody>' + rows + '</tbody></table></div>'

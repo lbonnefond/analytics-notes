@@ -271,7 +271,16 @@ final class GlobalAggregator
                 return $code;
             case self::MATCH_CODE4:
             default:
-                return $code !== '' ? substr($code, -4) : '';
+                // Clé renforcée : les 4 derniers caractères du code PLUS le 1er mot du nom
+                // de la matière. Évite de fusionner des matières réellement différentes qui
+                // partagent le même suffixe de 4 caractères (ex. DUTC = « Com. et insertion pro »
+                // / « Techniques en chimie orga » / « Thermodynamique cinétique »).
+                $code4 = $code !== '' ? substr($code, -4) : '';
+                if ($code4 === '') {
+                    return '';
+                }
+                $first = self::firstWordOfName($name);
+                return $first !== '' ? $code4 . '|' . $first : $code4;
         }
     }
 
@@ -294,5 +303,15 @@ final class GlobalAggregator
         ]);
 
         return (string) preg_replace('/\s+/', ' ', $name);
+    }
+
+    /** 1er mot du nom de la matière, normalisé (minuscules, sans accents/ponctuation). */
+    private static function firstWordOfName(string $name): string
+    {
+        $words = preg_split('/\s+/', trim(self::normalizeName($name)), -1, PREG_SPLIT_NO_EMPTY);
+        if (!$words) {
+            return '';
+        }
+        return rtrim($words[0], ' .-');
     }
 }

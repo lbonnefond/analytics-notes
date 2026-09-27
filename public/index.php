@@ -42,8 +42,8 @@ details summary { cursor: pointer; }
 </head>
 <body>
 <div class="wrap">
-<h1>Analyse des relevés de notes</h1>
-<p class="sub">Licence — fichiers de relevé APO (format .xlsx). Ajoutez les fichiers un par un ou par lot. 1 fichier = analyse d'un parcours · plusieurs = vue globale. Les fichiers sont traités sur le serveur puis supprimés.</p>
+<h1>Analyse des PV de semestre</h1>
+<p class="sub">Licence — fichiers de PV de semestre (format APO_PVLxSyPARCOURS.xlsx). Ajoutez les fichiers un par un ou par lot. 1 fichier = analyse d'un parcours · plusieurs = vue globale. Les fichiers sont traités sur le serveur puis supprimés.</p>
 
 <label id="drop" class="drop">
 <span class="big">📄</span>
