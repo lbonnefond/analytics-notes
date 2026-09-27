@@ -456,12 +456,19 @@ final class ApofileParser
             if (!str_contains($p, 'elp') || str_contains($p, 'semestre')) {
                 continue;
             }
+            // Colonne « Option » : placeholder de l'UE optionnelle choisie, ignorée
+            // (sa note est déjà portée par l'UE réellement choisie).
+            if (str_contains($p, 'option')) {
+                continue;
+            }
             if (strlen($col['child']) > 20 || !str_contains($ch, 'note')) {
                 continue;
             }
 
-            // Résultat dans les 3 colonnes suivantes ; on s'arrête si on croise
-            // une autre colonne « Note » avant (bloc « BP » / note d'option).
+            // Résultat dans les colonnes suivantes ; il doit appartenir au MÊME bloc
+            // ELP que la Note (parent propagé identique). Sinon c'est le Résultat de la
+            // matière qui suit (cas d'un bloc « BP » suivi d'une matière sans note).
+            // On s'arrête aussi si on croise une autre colonne « Note ».
             $resCol = null;
             for ($d = 1; $d <= 3; $d++) {
                 $cc = $this->cols[$c + $d] ?? null;
@@ -470,11 +477,13 @@ final class ApofileParser
                 }
                 $nch = $this->norm($cc['child']);
                 if (str_contains($nch, 'resultat')) {
-                    $resCol = $c + $d;
+                    if ($cc['parent'] === $col['parent']) {
+                        $resCol = $c + $d;
+                    }
                     break;
                 }
                 if (str_contains($nch, 'note')) {
-                    break;
+                    break; // BP / option
                 }
             }
             if ($resCol === null) {
@@ -484,7 +493,11 @@ final class ApofileParser
             $credCol = null;
             for ($d = 1; $d <= 2; $d++) {
                 $cc = $this->cols[$resCol + $d] ?? null;
-                if ($cc !== null && str_contains($this->norm($cc['child']), 'credits')) {
+                if (
+                    $cc !== null
+                    && $cc['parent'] === $col['parent']
+                    && str_contains($this->norm($cc['child']), 'credits')
+                ) {
                     $credCol = $resCol + $d;
                     break;
                 }
@@ -520,6 +533,11 @@ final class ApofileParser
             if (!str_contains($p, 'elp') || str_contains($p, 'semestre')) {
                 continue;
             }
+            // Colonne « Option » : placeholder de l'UE optionnelle choisie, ignorée
+            // (sa note est déjà portée par l'UE réellement choisie).
+            if (str_contains($p, 'option')) {
+                continue;
+            }
             if (strlen($col['child']) > 20) {
                 continue;
             }
@@ -546,6 +564,12 @@ final class ApofileParser
             $taken[$c] = true;
             $taken[$c + 1] = true;
         }
+
+        // Ordre par colonne (les 2 passes produisent deux séquences qu'on
+        // concatène) : attachExams() suppose que l'UE suivante dans le tableau
+        // est la suivante par colonne. Sans tri, une matière sans note située
+        // en fin de tableau « avale » les épreuves des UE suivantes.
+        usort($ues, static fn(array $a, array $b): int => ($a['col'] ?? $a['resultatCol']) <=> ($b['col'] ?? $b['resultatCol']));
 
         return $ues;
     }
@@ -591,6 +615,11 @@ final class ApofileParser
                     if ($label !== $ueLabel && !str_contains($label, 'BP')) {
                         continue;
                     }
+                }
+
+                // Les colonnes « Option » ne sont pas des épreuves.
+                if (str_contains($this->norm($label), 'option')) {
+                    continue;
                 }
 
                 [$code, $name] = self::splitExamLabel($label);
@@ -649,6 +678,10 @@ final class ApofileParser
         }
         foreach ($this->cols as $c => $col) {
             if (isset($known[$c]) || !str_contains($this->norm($col['child']), 'note')) {
+                continue;
+            }
+            // Les colonnes « Option » sont ignorées par conception, pas « non rattachées ».
+            if (str_contains($this->norm($col['parent']), 'option')) {
                 continue;
             }
             $this->warnings[] = sprintf('Colonne « Note » non rattachée (col. %d : %s / %s) : elle sera ignorée.', $c, $col['parent'], $col['child']);
