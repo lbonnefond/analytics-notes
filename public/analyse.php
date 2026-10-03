@@ -23,7 +23,7 @@ if ($path === null || !is_file($path)) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Analyse des notes</title>
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/app.css?v=<?= sha1_file(__DIR__ . '/assets/css/app.css') ?>">
 </head>
 <body>
 <header class="topbar">
@@ -72,6 +72,6 @@ if ($path === null || !is_file($path)) {
 <script src="assets/libs/chart.umd.js"></script>
 <script>window.APO_TOKEN = <?= json_encode($token) ?>;</script>
 <script>window.APO_GROUP = <?= json_encode($g) ?>;</script>
-<script src="assets/js/app.js"></script>
+<script src="assets/js/app.js?v=<?= sha1_file(__DIR__ . '/assets/js/app.js') ?>"></script>
 </body>
 </html>

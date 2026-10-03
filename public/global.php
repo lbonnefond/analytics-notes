@@ -33,7 +33,7 @@ if (!is_array($analysis) || !isset($analysis['groups']) || !is_array($analysis['
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vue globale — multi-parcours</title>
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/app.css?v=<?= sha1_file(__DIR__ . '/assets/css/app.css') ?>">
 </head>
 <body>
 <header class="topbar">
@@ -83,6 +83,6 @@ if (!is_array($analysis) || !isset($analysis['groups']) || !is_array($analysis['
 </div>
 <script src="assets/libs/chart.umd.js"></script>
 <script>window.APO_TOKEN = <?= json_encode($token) ?>;</script>
-<script src="assets/js/global.js"></script>
+<script src="assets/js/global.js?v=<?= sha1_file(__DIR__ . '/assets/js/global.js') ?>"></script>
 </body>
 </html>
