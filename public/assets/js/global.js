@@ -284,7 +284,7 @@
       '<td class="sigma-cell ' + sigmaCls(p.std) + '">' + fmt(p.std) + '</td></tr>'
     ).join('');
     return '<section><h2>Réussite par parcours</h2>' +
-      '<div class="table-wrap"><table id="parcoursTable"><thead>…</thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="table-wrap"><table id="parcoursTable"><thead><tr><th>Parcours</th><th>Fichier</th><th>Eff.</th><th>ADM</th><th>AJ</th><th>DEF</th><th>Taux ADM</th><th>Moy.</th><th>Méd.</th><th>σ</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="chart-box" style="height:240px;margin-top:16px"><canvas id="parcoursCanvas"></canvas></div>' +
       '<p class="muted">Clic sur une ligne : analyse détaillée du parcours.</p></section>';
   }

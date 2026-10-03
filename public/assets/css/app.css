@@ -180,3 +180,6 @@ tbody tr.clickable:hover { background: #f5f8ff; }
 /* ---------- Utilitaires (coloration des valeurs) ---------- */
 .bad { color: #dc2626; font-weight: 650; }
 .good { color: #2563eb; font-weight: 650; }
+
+#parcoursTable { width: auto; min-width: 100%; }
+#parcoursTable th, #parcoursTable td { white-space: nowrap; }
